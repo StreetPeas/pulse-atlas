@@ -1,0 +1,7 @@
+https://news.ycombinator.com/rss
+https://www.theverge.com/rss/index.xml
+https://feeds.arstechnica.com/arstechnica/index
+https://hnrss.org/newest?points=100
+https://www.schneier.com/feed/atom/
+https://blog.cloudflare.com/rss/
+https://openai.com/blog/rss.xml

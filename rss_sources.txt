@@ -1,0 +1,12 @@
+# News
+https://feeds.bbci.co.uk/news/rss.xml
+https://www.reuters.com/rssFeed/topNews
+
+# Crypto / Tech
+https://cointelegraph.com/rss
+https://decrypt.co/feed
+https://www.theblock.co/rss
+
+# AI / Research
+https://ai.googleblog.com/feeds/posts/default
+https://openai.com/blog/rss.xml

@@ -1,0 +1,242 @@
+#!/usr/bin/env python3
+
+"""
+Сбор базовых метрик из сети Bittensor через SubtensorAPI.
+
+Этот скрипт использует Bittensor SDK для получения номера текущего блока,
+количества активных механизмов и распределения эмиссии для указанного
+сабнета (netuid). Полученные данные сохраняются в таблицу `signals`
+используя функцию `save_signal()` из вашего модуля signals. Уровень
+сигнала по умолчанию — 🟡, горизонт — T2.
+"""
+from __future__ import annotations
+ATLAS_METRICS_STEP = 10  # save metrics every N blocks
+
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import os
+import json
+from typing import Any, Dict
+
+try:
+    import bittensor as bt
+except ImportError as e:
+    raise SystemExit(
+        "Ошибка: пакет 'bittensor' не установлен. Установите его с помощью 'python3 -m pip install bittensor'."
+    ) from e
+
+try:
+    # Предполагается, что signals.py находится в PYTHONPATH или в том же каталоге
+    from storage import save_signal
+except ImportError:
+    raise SystemExit(
+        "Ошибка: модуль 'signals' не найден. Убедитесь, что файл signals.py находится рядом со скриптом или добавлен в PYTHONPATH."
+    )
+
+def fetch_bittensor_metrics(netuid: int = 1) -> Dict[str, Any]:
+    """Получает метрики из сети Bittensor."""
+    sub = bt.SubtensorApi()
+    metrics: Dict[str, Any] = {}
+    try:
+        current_block: int = sub.block  # текущий номер блока
+        metrics["block"] = current_block
+    except Exception as e:
+        metrics["block_error"] = str(e)
+    try:
+        mech_count: int = sub.subnets.get_mechanism_count(netuid=netuid)
+        metrics["mechanism_count"] = mech_count
+    except Exception as e:
+        metrics["mechanism_count_error"] = str(e)
+    try:
+        split = sub.subnets.get_mechanism_emission_split(netuid=netuid)
+        total = sum(split) if split else 0
+        emissions = [round(x / total, 4) for x in split] if total else []
+        metrics["emission_split"] = emissions
+    except Exception as e:
+        metrics["emission_split_error"] = str(e)
+    return metrics
+
+# --- ATLAS PATCH: metrics -> SQLite ---
+import sqlite3
+from datetime import datetime, timezone
+
+def _atlas_db_path() -> str:
+    from pathlib import Path as _P
+    return str(_P(__file__).resolve().parent / "data" / "atlas.db")
+
+def _insert_signal_row(row: dict) -> None:
+    db = _atlas_db_path()
+    conn = sqlite3.connect(db)
+    try:
+        cur = conn.cursor()
+        info = cur.execute("PRAGMA table_info(signals)").fetchall()
+        cols = [r[1] for r in info]
+        notnull = {r[1]: int(r[3]) for r in info}        # name -> 0/1
+        dflt    = {r[1]: r[4] for r in info}             # name -> default sql literal or None
+
+        # meta -> json string (если колонка есть)
+        if "meta" in cols and "meta" in row and not isinstance(row["meta"], str):
+            row["meta"] = json.dumps(row["meta"], ensure_ascii=False)
+
+        # --- Автозаполнение NOT NULL (главное: label/source/color и т.д.) ---
+        # Базовые значения
+        base_source = row.get("source") or row.get("origin") or row.get("project") or "bittensor"
+        base_label  = row.get("label")  or row.get("project") or base_source or "bittensor"
+        base_text   = row.get("text")   or ""
+        base_title  = row.get("title")  or base_label
+        base_ts     = row.get("ts")     or datetime.now(timezone.utc).isoformat()
+
+        # Нормализуем частые поля
+        if "ts" in cols and "ts" not in row:
+            row["ts"] = base_ts
+        if "source" in cols and "source" not in row:
+            row["source"] = base_source
+        if "label" in cols and "label" not in row:
+            row["label"] = base_label
+        if "title" in cols and "title" not in row:
+            row["title"] = base_title
+        if "text" in cols and "text" not in row:
+            row["text"] = base_text
+
+        # Поля, которые часто NOT NULL в твоей схеме
+        defaults = {
+            "color":   "white",          # нейтральный (под твой вывод точное значение не критично)
+            "level":   "<0001f7e1>",
+            "horizon": "T2",
+            "kind":    row.get("kind") or "metric",
+            "url":     "",
+            "sentiment": "neutral",
+            "score":   0.35,
+            "summary": base_text or base_title,
+            "origin":  row.get("origin") or "bittensor",
+            "project": row.get("project") or "bittensor",
+        }
+        for k, v in defaults.items():
+            if k in cols and k not in row:
+                row[k] = v
+
+        # Если всё ещё не хватает каких-то NOT NULL колонок — подставим безопасные заглушки
+        for c in cols:
+            if c == "id":
+                continue
+            if notnull.get(c, 0) == 1 and (c not in row or row[c] is None):
+                # если в таблице есть DEFAULT — попробуем использовать его (как текст)
+                if dflt.get(c) is not None:
+                    # dflt приходит SQL-литералом, оставим как строку; чаще всего ок
+                    row[c] = str(dflt[c]).strip("'")
+                else:
+                    # эвристика по имени
+                    if c in ("ts",):
+                        row[c] = base_ts
+                    elif c in ("label",):
+                        row[c] = base_label
+                    elif c in ("source",):
+                        row[c] = base_source
+                    elif c in ("title",):
+                        row[c] = base_title
+                    elif c in ("text", "summary", "url"):
+                        row[c] = ""
+                    elif c in ("score",):
+                        row[c] = 0.0
+                    else:
+                        row[c] = ""
+
+        insert_cols = [c for c in cols if c != "id" and c in row]
+        if not insert_cols:
+            raise RuntimeError("signals table: no matching columns to insert")
+        sql = "INSERT OR IGNORE INTO signals ({}) VALUES ({})".format(
+            ",".join(insert_cols),
+            ",".join(["?"] * len(insert_cols)),
+        )
+        cur.execute(sql, [row[c] for c in insert_cols])
+        conn.commit()
+    finally:
+        conn.close()
+
+def save_bittensor_metrics_sqlite(metrics, netuid: int = 1) -> bool:
+    # --- ATLAS: metrics gate (save every N blocks) ---
+    import sqlite3, re as _re
+    from pathlib import Path as _Path
+
+
+    _db_path = _Path("data/atlas.db")
+    _con = sqlite3.connect(_db_path)
+    _cur = _con.cursor()
+    _row_last = _cur.execute(
+        """
+        SELECT url
+        FROM signals
+        WHERE url LIKE ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (f"bt://metrics/netuid={netuid}/block=%",),
+    ).fetchone()
+
+    ts = datetime.now(timezone.utc).isoformat()
+    title = f"Bittensor metrics (netuid={netuid})"
+    text = json.dumps(metrics, ensure_ascii=False, indent=2)
+
+    row = {
+        "ts": ts,
+        "origin": "bittensor",
+        "project": "bittensor",
+        "kind": "metric",
+        "title": title,
+    "url": f"bt://metrics/netuid={netuid}/block={metrics.get('block', '')}",
+    "source": "bittensor",
+    "label": "bittensor",
+    "color": "neutral",
+    "sentiment": "neutral",
+    "score": 0.35,
+        "text": text,
+        "meta": {"netuid": netuid, "metrics": metrics},
+    }
+    # --- ATLAS: gate metrics frequency (save every N blocks) ---
+    import sqlite3, re
+    from pathlib import Path
+
+    _last_block = None
+    con = None
+    try:
+        con = sqlite3.connect(Path("data/atlas.db"))
+        cur = con.cursor()
+        row_last = cur.execute(
+            """
+            SELECT url
+            FROM signals
+            WHERE url LIKE ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (f"bt://metrics/netuid={netuid}/block=%",),
+        ).fetchone()
+    finally:
+        if con is not None:
+            con.close()
+
+    if row_last and row_last[0]:
+        mm = re.search(r"block=(\d+)", row_last[0])
+        if mm:
+            _last_block = int(mm.group(1))
+
+    _cur_block = int(metrics.get("block", 0) or 0)
+    if _last_block is not None and _cur_block < _last_block + ATLAS_METRICS_STEP:
+        print(f"Skip metrics: block {_cur_block} (last {_last_block}, step {ATLAS_METRICS_STEP})")
+        return False
+    # --- /ATLAS ---
+    _insert_signal_row(row)
+    return True
+# --- /ATLAS PATCH ---
+
+def main() -> None:
+    netuid = int(os.environ.get("BT_NETUID", 1))
+    metrics = fetch_bittensor_metrics(netuid=netuid)
+    saved = save_bittensor_metrics_sqlite(metrics, netuid=netuid)
+    if saved:
+        print(f"Метрики для netuid={netuid} собраны и сохранены:\\n{json.dumps(metrics, ensure_ascii=False, indent=2)}")
+    else:
+        print(f"Метрики для netuid={netuid} собраны (SKIP save, step {ATLAS_METRICS_STEP}):\n{json.dumps(metrics, ensure_ascii=False, indent=2)}")
+
+if __name__ == "__main__":
+    main()

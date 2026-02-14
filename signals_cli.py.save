@@ -1,0 +1,64 @@
+import argparse
+import storage
+from signals import make_signal, tags_json
+
+def cmd_signal(args):
+    storage.init_db()
+
+    tags = [t.strip() for t in (args.tags or "").split(",") if t.strip()]
+    s = make_signal(
+        source=args.source,
+        text=args.text,
+        origin=args.origin,
+        title=args.title,
+        url=args.url,
+        tags=tags,
+    )
+
+    storage.save_signal(
+        s.ts,
+        s.source,
+        s.origin,
+        s.title,
+        s.text,
+        s.url,
+        tags_json(s.tags),
+        float(s.score),
+        s.color,
+        s.label,
+        s.rationale,
+    )
+
+    print(f"[signal] {s.color} {s.label} score={s.score:.2f} origin={s.origin or '-'}")
+def cmd_list(args):
+    import sqlite3
+    storage.init_db()
+    conn = sqlite3.connect(storage.DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, ts, source, origin, color, label, score FROM signals ORDER BY id DESC LIMIT ?",
+        (args.limit,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    for r in rows:
+        _id, ts, source, origin, color, label, score = r
+        print(f"{_id}\t{color}\t{label}\t{score:.2f}\t{source}\t{origin or '-'}\t{ts}")
+def main():
+    p = argparse.Argume sub.add_parser("signal")    pl = sub.add_parser("list")
+    pl.add_argument("--limit", type=int, default=10)
+    pl.set_defaults(func=cmd_list)
+    ps.add_argument("--source", default="manual", choices=["manual","x","rss"])
+    ps.add_argument("--origin")
+    ps.add_argument("--title")
+    ps.add_argument("--text", required=True)
+    ps.add_argument("--url")
+    ps.add_argument("--tags")
+    ps.set_defaults(func=cmd_signal)
+
+    args = p.parse_args()
+    args.func(args)
+
+if __name__ == "__main__":
+    main()

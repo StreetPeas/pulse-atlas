@@ -1,0 +1,18 @@
+for e in getattr(feed, "entries", []):
+    url = e.get("link", "") or ""
+    title = e.get("title", "") or ""
+
+    text = (
+        (e.get("content") and e.get("content")[0].get("value"))
+        or e.get("summary")
+        or e.get("description")
+        or ""
+    )
+
+    hv = sha(url + "||" + title)
+    if already_seen(hv):
+        continue
+
+    ts = parse_ts(e)
+    insert_signal(ts, origin, title, text, url)
+    mark_seen(hv)

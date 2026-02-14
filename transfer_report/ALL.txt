@@ -1,0 +1,142 @@
+== doctor.sh ==
+== ATLAS DOCTOR ==
+WD: /Users/johnnymahony/Projects/atlas
+SHELL: /bin/zsh
+DATE: Sat Feb 14 00:20:37 CET 2026
+
+== run.sh (first 80 lines) ==
+     1	#!/usr/bin/env bash
+     2	set -euo pipefail
+     3	
+     4	cd "$(dirname "$0")"
+     5	
+     6	python3 rss_fetch.py
+     7	python3 score_signals.py
+     8	sqlite3 data/atlas.db "SELECT datetime('now'), COUNT(*) total FROM signals;"
+
+== launchd status (rss/score) ==
+	state = not running
+	program = /Library/Frameworks/Python.framework/Versions/3.14/bin/python3
+	working directory = /Users/johnnymahony/Projects/atlas
+	stdout path = /Users/johnnymahony/Projects/atlas/logs/rss.out.log
+	stderr path = /Users/johnnymahony/Projects/atlas/logs/rss.err.log
+	runs = 9
+	last exit code = 0
+		state = active
+		state = active
+	run interval = 900 seconds
+
+	state = not running
+	program = /Library/Frameworks/Python.framework/Versions/3.14/bin/python3
+	working directory = /Users/johnnymahony/Projects/atlas
+	stdout path = /Users/johnnymahony/Projects/atlas/logs/score.out.log
+	stderr path = /Users/johnnymahony/Projects/atlas/logs/score.err.log
+	runs = 7
+	last exit code = 0
+		state = active
+		state = active
+	run interval = 900 seconds
+
+== pipeline run (rss_fetch -> score_signals) ==
+OK: rss_fetch inserted=0 ignored=160
+OK: score_signals updated=2
+
+== db counters ==
+2026-02-13 23:20:41|1642
+legacy_rss|1280
+https://openai.com/blog/rss.xml|104
+https://news.ycombinator.com/rss|94
+https://hnrss.org/newest?points=100|42
+https://feeds.arstechnica.com/arstechnica/index|30
+https://www.theverge.com/rss/index.xml|26
+https://blog.cloudflare.com/rss/|21
+bittensor|20
+https://www.schneier.com/feed/atom/|11
+sample|10
+manual|3
+x|1
+
+== last logs (tail 60) ==
+-- rss.out.log --
+OK: rss_fetch inserted=0 ignored=30
+OK: rss_fetch inserted=1 ignored=29
+OK: rss_fetch inserted=0 ignored=160
+WARN: source failed: https://blog.cloudflare.com/rss/ :: HTTPSConnectionPool(host='blog.cloudflare.com', port=443): Read timed out. (read timeout=25)
+WARN: source failed: https://openai.com/blog/rss.xml :: HTTPSConnectionPool(host='openai.com', port=443): Max retries exceeded with url: /blog/rss.xml (Caused by NameResolutionError("HTTPSConnection(host='openai.com', port=443): Failed to resolve 'openai.com' ([Errno 8] nodename nor servname provided, or not known)"))
+OK: rss_fetch inserted=18 ignored=72
+OK: rss_fetch inserted=45 ignored=115
+OK: rss_fetch inserted=0 ignored=160
+OK: rss_fetch inserted=0 ignored=160
+OK: rss_fetch inserted=2 ignored=158
+-- rss.err.log --
+-- score.out.log --
+OK: score_signals updated=105
+OK: score_signals none_to_score
+OK: score_signals updated=18
+OK: score_signals updated=45
+OK: score_signals none_to_score
+OK: score_signals none_to_score
+-- score.err.log --
+
+== done ==
+2026-02-13 23:20:41
+total_signals|1642
+dupes_source_url|0
+top_sources|
+legacy_rss|1280
+https://openai.com/blog/rss.xml|104
+https://news.ycombinator.com/rss|94
+https://hnrss.org/newest?points=100|42
+https://feeds.arstechnica.com/arstechnica/index|30
+https://www.theverge.com/rss/index.xml|26
+https://blog.cloudflare.com/rss/|21
+bittensor|20
+https://www.schneier.com/feed/atom/|11
+sample|10
+manual|3
+x|1
+last_20|
+4442|https://news.ycombinator.com/rss|https://www.nickolinger.com/blog/2026-02-13-ai-bot-crabby-rathbun-is-still-going/|🟢
+4436|https://news.ycombinator.com/rss|https://github.com/datascale-ai/data_engineering_book/blob/main/README_en.md|🟢
+3818|https://news.ycombinator.com/rss|https://nickbostrom.com/optimal.pdf|🟢
+3817|https://news.ycombinator.com/rss|https://www.worksinprogress.news/p/the-wonder-of-modern-drywall|🟡
+3814|https://news.ycombinator.com/rss|https://blog.feld.me/posts/2026/02/wolfssl-sucks-too/|🟡
+3696|https://hnrss.org/newest?points=100|https://www.politico.eu/article/tiktok-meta-facebook-instagram-brussels-kill-infinite-scro|🟡
+3695|https://hnrss.org/newest?points=100|https://theconversation.com/openai-has-deleted-the-word-safely-from-its-mission-and-its-ne|🟡
+3343|https://news.ycombinator.com/rss|https://www.youtube.com/watch?v=lEBQveBCtKY|🟡
+3342|https://news.ycombinator.com/rss|https://stereo2go.com/forums/threads/one-of-the-rarest-the-sharp-pc-2000-computer-boombox-|🟡
+2948|https://openai.com/blog/rss.xml|https://openai.com/index/scaling-social-science-research|🟢
+2946|https://openai.com/blog/rss.xml|https://openai.com/index/introducing-lockdown-mode-and-elevated-risk-labels-in-chatgpt|🟢
+2945|https://openai.com/blog/rss.xml|https://openai.com/index/new-result-theoretical-physics|🟡
+2915|https://www.schneier.com/feed/atom/|https://www.schneier.com/blog/archives/2026/02/friday-squid-blogging-do-squid-dream.html|🟡
+2904|https://hnrss.org/newest?points=100|https://css-doodle.com/|🟡
+2898|https://hnrss.org/newest?points=100|https://github.com/nearai/ironclaw|🟢
+2897|https://hnrss.org/newest?points=100|https://www.wired.com/story/i-tried-rentahuman-ai-agents-hired-me-to-hype-their-ai-startup|🟡
+2896|https://hnrss.org/newest?points=100|https://www.wired.com/story/cbp-signs-clearview-ai-deal-to-use-face-recognition-for-tactic|🟡
+2895|https://hnrss.org/newest?points=100|https://openai.com/index/new-result-theoretical-physics/|🟡
+2878|https://feeds.arstechnica.com/arstechnica/index|https://arstechnica.com/culture/2026/02/1-8-million-mst3k-kickstarter-brings-in-almost-eve|🟡
+2877|https://feeds.arstechnica.com/arstechnica/index|https://arstechnica.com/gadgets/2026/02/the-first-android-17-beta-is-now-available-on-pixe|🟡
+===== logs/rss.out.log =====
+OK: rss_fetch inserted=0 ignored=30
+OK: rss_fetch inserted=1 ignored=29
+OK: rss_fetch inserted=0 ignored=160
+WARN: source failed: https://blog.cloudflare.com/rss/ :: HTTPSConnectionPool(host='blog.cloudflare.com', port=443): Read timed out. (read timeout=25)
+WARN: source failed: https://openai.com/blog/rss.xml :: HTTPSConnectionPool(host='openai.com', port=443): Max retries exceeded with url: /blog/rss.xml (Caused by NameResolutionError("HTTPSConnection(host='openai.com', port=443): Failed to resolve 'openai.com' ([Errno 8] nodename nor servname provided, or not known)"))
+OK: rss_fetch inserted=18 ignored=72
+OK: rss_fetch inserted=45 ignored=115
+OK: rss_fetch inserted=0 ignored=160
+OK: rss_fetch inserted=0 ignored=160
+OK: rss_fetch inserted=2 ignored=158
+
+===== logs/rss.err.log =====
+
+===== logs/score.out.log =====
+OK: score_signals updated=105
+OK: score_signals none_to_score
+OK: score_signals updated=18
+OK: score_signals updated=45
+OK: score_signals none_to_score
+OK: score_signals none_to_score
+
+===== logs/score.err.log =====
+

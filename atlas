@@ -1,0 +1,134 @@
+#!/bin/bash
+set -e
+
+cmd="${1:-помощь}"
+shift || true
+
+case "$cmd" in
+  помощь|help|-h|--help)
+    cat <<'TXT'
+ATLAS (команды)
+
+  ./atlas статус
+        состояние системы (база, количество сигналов, последние 3)
+
+  ./atlas показать [N]
+        показать последние N сигналов (по умолчанию 10)
+
+  ./atlas добавить "ТЕКСТ"
+        добавить сигнал (manual/test)
+
+  ./atlas риск "ТЕКСТ"
+        добавить risk-сигнал (tags: risk,market)
+
+Примеры:
+  ./atlas статус
+  ./atlas показать 5
+  ./atlas добавить "новость: рынок нервничает"
+  ./atlas риск "SEC lawsuit rumor, exploit claims spreading"
+TXT
+    ;;
+
+  статус|status)
+    echo "DIR: $(pwd)"
+    echo "DB : data/atlas.db"
+    if [ ! -f data/atlas.db ]; then
+      echo "DB missing"
+      exit 2
+    fi
+    echo -n "signals: "
+    sqlite3 data/atlas.db "select count(*) from signals;"
+    echo "--- last 3 ---"
+    python3 signals_cli.py list --limit 3
+    ;;
+
+  x)
+    nick="${1:-}"
+    text="${2:-}"
+    url="${3:-}"
+    if [ -z "$nick" ] || [ -z "$text" ]; then
+      echo 'Нужно: ./atlas x "@ник" "ТЕКСТ" ["URL"]'
+      exit 2
+    fi
+    if [ -z "$url" ]; then
+      python3 signals_cli.py signal --source x --origin "$nick" --text "$text"
+    else
+      python3 signals_cli.py signal --source x --origin "$nick" --url "$url" --text "$text"
+    fi
+    ;;
+
+  риски|risklist)
+    n="${1:-10}"
+    if [ ! -f data/atlas.db ]; then
+      echo "DB missing"
+      exit 2
+    fi
+    sqlite3 data/atlas.db "select id, color, label, round(score,2), source, coalesce(origin,'-'), ts from signals where label='risk' order by id desc limit $n;"
+    ;;
+
+  нейтр|neutrlist)
+    n="${1:-10}"
+    if [ ! -f data/atlas.db ]; then
+      echo "DB missing"
+      exit 2
+    fi
+    sqlite3 data/atlas.db "select id, color, label, round(score,2), source, coalesce(origin,'-'), ts from signals where label='neutral' order by id desc limit $n;"
+    ;;
+
+  красные|red)
+    n="${1:-10}"
+    if [ ! -f data/atlas.db ]; then
+      echo "DB missing"
+      exit 2
+    fi
+    sqlite3 data/atlas.db "select id, color, label, round(score,2), source, coalesce(origin,'-'), ts from signals where color='🔴' order by id desc limit $n;"
+    ;;
+
+  пульс|pulse)
+    h="${1:-24}"
+    if [ ! -f data/atlas.db ]; then
+      echo "DB missing"
+      exit 2
+    fi
+    echo "PULSE (${h}h):"
+    sqlite3 data/atlas.db "
+      SELECT
+        '🔴 ' || SUM(CASE WHEN color='🔴' THEN 1 ELSE 0 END) ||
+        ' | 🟠 ' || SUM(CASE WHEN color='🟠' THEN 1 ELSE 0 END) ||
+        ' | 🟡 ' || SUM(CASE WHEN color='🟡' THEN 1 ELSE 0 END) ||
+        ' | 🟢 ' || SUM(CASE WHEN color='🟢' THEN 1 ELSE 0 END) ||
+        ' | ⚫ ' || SUM(CASE WHEN color='⚫' THEN 1 ELSE 0 END)
+      FROM signals
+      WHERE ts >= datetime('now', '-' || $h || ' hours');
+    "
+    ;;
+
+  показать|list)
+    n="${1:-10}"
+    python3 signals_cli.py list --limit "$n"
+    ;;
+
+  добавить|add)
+    text="${1:-}"
+    if [ -z "$text" ]; then
+      echo 'Нужно: ./atlas добавить "ТЕКСТ"'
+      exit 2
+    fi
+    python3 signals_cli.py signal --source manual --origin test --text "$text"
+    ;;
+
+  риск|risk)
+    text="${1:-}"
+    if [ -z "$text" ]; then
+      echo 'Нужно: ./atlas риск "ТЕКСТ"'
+      exit 2
+    fi
+    python3 signals_cli.py signal --source manual --origin test --tags "risk,market" --text "$text"
+    ;;
+
+  *)
+    echo "Неизвестная команда: $cmd"
+    echo "Напиши: ./atlas помощь"
+    exit 2
+    ;;
+esac
