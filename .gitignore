@@ -23,3 +23,7 @@ storage.py.bak*
 *.swp
 .engine.log
 .streamlit.log
+
+# sqlite db
+data/*.db
+data/*.db-*
