@@ -1,3 +1,74 @@
+import sqlite3
+from pathlib import Path
+
+DB_PATH = Path("data/atlas.db")
+
+def init_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS journal (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project TEXT,
+        note TEXT,
+        signal TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS signals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts TEXT NOT NULL,
+        source TEXT NOT NULL,
+        origin TEXT,
+        title TEXT,
+        text TEXT NOT NULL,
+        url TEXT,
+        tags TEXT,
+        score REAL NOT NULL,
+        color TEXT NOT NULL,
+        label TEXT NOT NULL,
+        rationale TEXT
+    )
+    """)
+    conn.commit()
+    conn.close()
+
+def save_entry(project: str, note: str, signal: str):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO journal (project, note, signal) VALUES (?, ?, ?)",
+        (project, note, signal)
+    )
+    conn.commit()
+    conn.close()
+def save_signal(
+    ts: str,
+    source: str,
+    origin: str | None,
+    title: str | None,
+    text: str,
+    url: str | None,
+    tags: str | None,
+    score: float,
+    color: str,
+    label: str,
+    rationale: str | None,
+):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        """INSERT OR IGNORE INTO signals(ts, source, origin, title, text, url, tags, score, color, label, rationale)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+        (ts, source, origin, title, text, url, tags, score, color, label, rationale),
+    )
+    conn.commit()
+    conn.close()
+
+
 # --- ATLAS V2 STORAGE PATCH (dedup + ignore) ---
 # Цель:
 # 1) Глобальный дедуп по url (UNIQUE INDEX + INSERT OR IGNORE)

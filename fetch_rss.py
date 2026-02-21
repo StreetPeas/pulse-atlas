@@ -46,7 +46,7 @@ def insert_signal(ts, origin, title, text, url):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO signals(ts, source, origin, title, text, url, score, color, label)
+        INSERT OR IGNORE INTO signals(ts, source, origin, title, text, url, score, color, label)
         VALUES(?,?,?,?,?,?,?,?,?)
     """, (ts, "rss", origin, title, text, url, 0.35, "⚪", "neutral"))
     conn.commit()
