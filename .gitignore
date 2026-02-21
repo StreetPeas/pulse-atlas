@@ -27,3 +27,22 @@ storage.py.bak*
 # sqlite db
 data/*.db
 data/*.db-*
+
+# runtime pid
+.streamlit_.pid
+.streamlit_*.pid
+
+# local scratch/exports
+PULSE_ATLAS_CODE.txt
+pulse_atlas_code_dump.txt
+pulse_atlas_docs.md
+PULSE_ATLAS_PROJECT.md
+
+# local dirs
+inbox/
+data/artifacts/
+
+# dashboard rescue files
+dashboard.broken.py
+dashboard.restore*.py
+dashboard_backup_*.py
