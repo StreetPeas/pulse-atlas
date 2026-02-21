@@ -1,0 +1,25 @@
+
+# macOS
+.DS_Store
+
+# python
+__pycache__/
+*.pyc
+
+# logs / outputs
+logs/
+data/logs/
+*.log
+
+# backups
+*.bak
+*.bak.*
+dashboard.py.bak*
+decision_engine.py.bak*
+storage.py.bak*
+
+# temp / editor
+*.save
+*.swp
+.engine.log
+.streamlit.log
