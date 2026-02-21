@@ -46,3 +46,11 @@ data/artifacts/
 dashboard.broken.py
 dashboard.restore*.py
 dashboard_backup_*.py
+
+# local one-off repair/debug scripts (keep out of repo)
+doctor_imports.py
+fix_*.sh
+patch_*.py
+sidebar_upgrade.py
+run_dashboard_fg_debug.sh
+make_docs.sh
