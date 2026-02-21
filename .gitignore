@@ -54,3 +54,6 @@ patch_*.py
 sidebar_upgrade.py
 run_dashboard_fg_debug.sh
 make_docs.sh
+
+# guardian reports
+logs/guardian/

@@ -1,0 +1,8 @@
+#!/bin/bash
+set -euo pipefail
+PY="${PYTHON:-python3}"
+if [ "${1:-}" = "--smoke" ]; then
+  shift
+  exec "$PY" guardian.py --smoke-run-all "$@"
+fi
+exec "$PY" guardian.py "$@"
